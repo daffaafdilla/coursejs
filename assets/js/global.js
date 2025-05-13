@@ -1,221 +1,136 @@
-const coinsCount = document.getElementById('coins-count');
-const exchangesCount = document.getElementById('exchanges-count');
-const marketCap = document.getElementById('marketCap');
-const marketCapChangeElement = document.getElementById('marketCapChange');
-const volume = document.getElementById('volume');
-const dominance = document.getElementById('dominance');
-
-document.addEventListener("DOMContentLoaded", () => {
-
+// global.js
+document.addEventListener('DOMContentLoaded', function() {
+    // Theme toggle functionality
     const themeToggle = document.getElementById('theme-toggle');
     const body = document.body;
-
+    
+    // Check if theme preference is stored in localStorage
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
-        body.id = savedTheme;
-        updateIcon(savedTheme);
+        body.classList.toggle('dark-theme', savedTheme === 'dark');
+        updateThemeIcon(savedTheme === 'dark');
+    } else {
+        // Check for system preference
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        body.classList.toggle('dark-theme', prefersDark);
+        updateThemeIcon(prefersDark);
     }
-
-    themeToggle.addEventListener('click', () => {
-        if (body.id === 'light-theme') {
-            body.id = 'dark-theme';
-            localStorage.setItem('theme', 'dark-theme');
-            updateIcon('dark-theme');
-        } else {
-            body.id = 'light-theme';
-            localStorage.setItem('theme', 'light-theme');
-            updateIcon('light-theme');
-        }
-
-        if (typeof initializeWidget === 'function') {
-            initializeWidget();
-        }
-
+    
+    themeToggle.addEventListener('click', function() {
+        const isDarkMode = body.classList.toggle('dark-theme');
+        updateThemeIcon(isDarkMode);
+        localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
     });
-
-    function updateIcon(currentTheme) {
-        if (currentTheme === 'light-theme') {
-            themeToggle.classList.remove('ri-moon-line');
-            themeToggle.classList.add('ri-sun-line');
-        } else {
-            themeToggle.classList.remove('ri-sun-line');
-            themeToggle.classList.add('ri-moon-line');
-        }
+    
+    // Function to update theme icon
+    function updateThemeIcon(isDarkMode) {
+        themeToggle.className = isDarkMode ? 'ri-moon-line' : 'ri-sun-line';
     }
-
-    const form = document.getElementById('searchForm');
-    form.addEventListener('submit', (event) => {
-        event.preventDefault();
-
-        const query = document.getElementById('searchInput').value.trim();
-        if (!query) return;
-
-        window.location.href = `/../../pages/search.html?query=${query}`;
-    });
-
+    
+    // Mobile menu functionality
     const openMenuBtn = document.getElementById('openMenu');
-    const overlay = document.querySelector('.overlay');
     const closeMenuBtn = document.getElementById('closeMenu');
-
-    openMenuBtn.addEventListener('click', () => {
-        overlay.classList.add('show');
+    const overlay = document.querySelector('.overlay');
+    
+    openMenuBtn.addEventListener('click', function() {
+        overlay.classList.add('active');
     });
-
-    closeMenuBtn.addEventListener('click', () => {
-        overlay.classList.remove('show');
+    
+    closeMenuBtn.addEventListener('click', function() {
+        overlay.classList.remove('active');
     });
-
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
-            overlay.classList.remove('show');
+    
+    // Scroll to top button functionality
+    const scrollTopBtn = document.getElementById('scrollTop');
+    
+    window.addEventListener('scroll', function() {
+        if (window.pageYOffset > 300) {
+            scrollTopBtn.classList.add('show');
+        } else {
+            scrollTopBtn.classList.remove('show');
         }
     });
-
-    fetchGlobal();
+    
+    // Fetch and display global crypto data
+    fetchGlobalData();
 });
 
-function getLocalStorageData(key) {
-    const storedData = localStorage.getItem(key);
-    if (!storedData) return null;
-
-    const parsedData = JSON.parse(storedData);
-    const currentTime = Date.now();
-    if (currentTime - parsedData.timestamp > 300000) {
-        localStorage.removeItem(key);
-        return null;
-    }
-    return parsedData.data;
-}
-
-function setLocalStorageData(key, data) {
-    const storedData = {
-        timestamp: Date.now(),
-        data: data
-    };
-    localStorage.setItem(key, JSON.stringify(storedData));
-}
-
-function fetchGlobal() {
-    const localStorageKey = 'Global_Data';
-    const localData = getLocalStorageData(localStorageKey);
-
-    if (localData) {
-        displayGlobalData(localData);
-    } else {
-        const options = { method: 'GET', headers: { accept: 'application/json' } };
-
-        fetch('https://api.coingecko.com/api/v3/global', options)
-            .then(response => response.json())
-            .then(data => {
-                const globalData = data.data;
-                displayGlobalData(data);
-                setLocalStorageData(localStorageKey, globalData);
-            })
-            .catch(error => {
-                coinsCount.textContent = 'N/A';
-                exchangesCount.textContent = 'N/A';
-                marketCap.textContent = 'N/A';
-                marketCapChangeElement.textContent = 'N/A';
-                volume.textContent = 'N/A';
-                dominance.textContent = 'BTC N/A% - ETH N/A%';
-                console.error(error);
-            });
-    }
-}
-
-function displayGlobalData(globalData) {
-    coinsCount.textContent = globalData.active_cryptocurrencies || 'N/A';
-    exchangesCount.textContent = globalData.markets || 'N/A';
-
-    marketCap.textContent = globalData.total_market_cap?.usd ? `$${(globalData.total_market_cap.usd / 1e12).toFixed(3)}T` : 'N/A';
-    const marketCapChange = globalData.market_cap_change_percentage_24h_usd;
-
-    if (marketCapChange !== undefined) {
-        const changeText = `${marketCapChange.toFixed(1)}%`;
-        marketCapChangeElement.innerHTML = `${changeText} <i class="${marketCapChange < 0 ? 'red' : 'green'} ri-arrow-${marketCapChange < 0 ? 'down' : 'up'}-s-fill"></i>`;
-        marketCapChangeElement.style.color = marketCapChange < 0 ? 'red' : 'green';
-    } else {
-        marketCapChangeElement.textContent = 'N/A';
-    }
-
-    volume.textContent = globalData.total_volume?.usd ? `$${(globalData.total_volume.usd / 1e9).toFixed(3)}B` : 'N/A';
-
-    const btcDominance = globalData.market_cap_percentage?.btc ? `${globalData.market_cap_percentage.btc.toFixed(1)}%` : 'N/A';
-    const ethDominance = globalData.market_cap_percentage?.eth ? `${globalData.market_cap_percentage.eth.toFixed(1)}%` : 'N/A';
-    dominance.textContent = `BTC ${btcDominance} - ETH ${ethDominance}`;
-}
-
-function toggleSpinner(listId, spinnerId, show) {
-    const listElement = document.getElementById(listId);
-    const spinnerElement = document.getElementById(spinnerId);
-
-    if (spinnerElement) {
-        spinnerElement.style.display = show ? 'block' : 'none';
-    }
-    if (listElement) {
-        listElement.style.display = show ? 'none' : 'block';
-    }
-}
-
-function createTable(headers, fixedIndex = 0) {
-    const table = document.createElement('table');
-    const thead = document.createElement('thead');
-    table.appendChild(thead);
-
-    const headerRow = document.createElement('tr');
-    headers.forEach((header, index) => {
-        const th = document.createElement('th');
-        th.textContent = header;
-        if (index === fixedIndex) {
-            th.classList.add('table-fixed-column');
+// Function to fetch global cryptocurrency data
+async function fetchGlobalData() {
+    try {
+        const response = await fetch('https://api.coingecko.com/api/v3/global');
+        
+        if (!response.ok) {
+            throw new Error('API request failed');
         }
-        headerRow.appendChild(th);
-    });
-    thead.appendChild(headerRow);
-
-    return table;
-}
-
-function createWidget(containerId, widgetConfig, widgetSrc) {
-    const container = document.getElementById(containerId);
-
-    container.innerHTML = '';
-
-    const widgetDiv = document.createElement('div');
-    widgetDiv.classList.add('tradingview-widget-container__widget');
-    container.appendChild(widgetDiv);
-
-    const script = document.createElement('script');
-    script.type = 'text/javascript';
-    script.src = widgetSrc;
-    script.async = true;
-    script.innerHTML = JSON.stringify(widgetConfig);
-    container.appendChild(script);
-
-    setTimeout(() => {
-        const copyright = document.querySelector('.tradingview-widget-copyright');
-        if (copyright) {
-            copyright.classList.remove('hidden');
+        
+        const data = await response.json();
+        const globalData = data.data;
+        
+        // Update global data elements
+        document.getElementById('coins-count').textContent = globalData.active_cryptocurrencies.toLocaleString();
+        document.getElementById('exchanges-count').textContent = globalData.markets.toLocaleString();
+        
+        // Format market cap
+        const marketCap = formatCurrency(globalData.total_market_cap.usd);
+        document.getElementById('marketCap').textContent = marketCap;
+        
+        // Format market cap change
+        const marketCapChange = globalData.market_cap_change_percentage_24h_usd.toFixed(2);
+        const marketCapChangeEl = document.getElementById('marketCapChange');
+        marketCapChangeEl.textContent = `${marketCapChange}%`;
+        
+        // Add appropriate class for color
+        if (marketCapChange > 0) {
+            marketCapChangeEl.classList.add('positive');
+            marketCapChangeEl.classList.remove('negative');
+            marketCapChangeEl.innerHTML += ' <i class="ri-arrow-up-s-fill"></i>';
+        } else {
+            marketCapChangeEl.classList.add('negative');
+            marketCapChangeEl.classList.remove('positive');
+            marketCapChangeEl.innerHTML += ' <i class="ri-arrow-down-s-fill"></i>';
         }
-    }, 5000);
-}
-
-const scrollTopBtn = document.getElementById("scrollTop");
-window.onscroll = () => {
-    scrollFunction();
-}
-
-function scrollFunction() {
-    if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
-        scrollTopBtn.style.display = "flex";
-    } else {
-        scrollTopBtn.style.display = "none";
+        
+        // Format 24h volume
+        const volume = formatCurrency(globalData.total_volume.usd);
+        document.getElementById('volume').textContent = volume;
+        
+        // Format dominance
+        const btcDominance = globalData.market_cap_percentage.btc.toFixed(1);
+        const ethDominance = globalData.market_cap_percentage.eth.toFixed(1);
+        document.getElementById('dominance').textContent = `BTC ${btcDominance}% - ETH ${ethDominance}%`;
+        
+    } catch (error) {
+        console.error('Error fetching global data:', error);
+        // Set default values if API fails
+        document.getElementById('coins-count').textContent = 'N/A';
+        document.getElementById('exchanges-count').textContent = 'N/A';
+        document.getElementById('marketCap').textContent = 'N/A';
+        document.getElementById('marketCapChange').textContent = 'N/A';
+        document.getElementById('volume').textContent = 'N/A';
+        document.getElementById('dominance').textContent = 'BTC N/A% - ETH N/A%';
     }
 }
 
+// Function to format currency with appropriate suffix (K, M, B, T)
+function formatCurrency(value) {
+    if (value >= 1000000000000) {
+        return '$' + (value / 1000000000000).toFixed(2) + 'T';
+    } else if (value >= 1000000000) {
+        return '$' + (value / 1000000000).toFixed(2) + 'B';
+    } else if (value >= 1000000) {
+        return '$' + (value / 1000000).toFixed(2) + 'M';
+    } else if (value >= 1000) {
+        return '$' + (value / 1000).toFixed(2) + 'K';
+    } else {
+        return '$' + value.toFixed(2);
+    }
+}
+
+// Function to scroll to top
 function scrollToTop() {
-    // For Safari
-    document.body.scrollTop = 0;
-    // Chrome, Firefox, IE and Opera
-    document.documentElement.scrollTop = 0;
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
 }
