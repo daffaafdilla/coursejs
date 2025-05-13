@@ -36,7 +36,38 @@ function openTab(event, tabName) {
 document.addEventListener("DOMContentLoaded", () => {
     document.querySelector(".tab-button").click();
     fetchData();
+    
+    // Menambahkan event listener untuk navigasi menu
+    setupNavigation();
 });
+
+// Fungsi untuk mengatur navigasi menu
+function setupNavigation() {
+    // Mengambil semua tautan navigasi
+    const navLinks = document.querySelectorAll('.nav-links a');
+    const overlayLinks = document.querySelectorAll('.overlay .nav-links a');
+    
+    // Setup untuk overlay menu
+    const openMenuBtn = document.getElementById('openMenu');
+    const closeMenuBtn = document.getElementById('closeMenu');
+    const overlay = document.querySelector('.overlay');
+    
+    if (openMenuBtn) {
+        openMenuBtn.addEventListener('click', () => {
+            overlay.style.display = 'flex';
+        });
+    }
+    
+    if (closeMenuBtn) {
+        closeMenuBtn.addEventListener('click', () => {
+            overlay.style.display = 'none';
+        });
+    }
+    
+    // Log untuk debugging
+    console.log("Nav links found:", navLinks.length);
+    console.log("Overlay links found:", overlayLinks.length);
+}
 
 async function fetchData() {
     await Promise.all([
@@ -107,7 +138,7 @@ function displayTrendCoins(coins) {
             <td>$${coinData.data.total_volume}</td>
             <td class="${coinData.data.price_change_percentage_24h.usd >= 0 ? 'green' : 'red'}">${coinData.data.price_change_percentage_24h.usd.toFixed(2)}%</td>
         `;
-        row.onclick = () => window.location.href = `../../pages/coin.html?coin=${coinData.id}`;
+        row.onclick = () => window.location.href = `pages/coin.html?coin=${coinData.id}`;
         table.appendChild(row);
     });
     coinsList.appendChild(table);
@@ -156,7 +187,8 @@ function displayAssets(data) {
             sparkline: asset.sparkline_in_7d.price,
             color: asset.sparkline_in_7d.price[0] <= asset.sparkline_in_7d.price[asset.sparkline_in_7d.price.length - 1] ? 'green' : 'red'
         });
-        row.onclick = () => window.location.href = `../../pages/coin.html?coin=${asset.id}`;
+        row.onclick = () => window.location.href = `pages/coin.html?coin=${asset.id}`;
+        
     });
     cryptoList.appendChild(table);
 
@@ -261,4 +293,45 @@ function displayCompanies(data) {
         table.appendChild(row);
     });
     companyList.appendChild(table);
+}
+
+// Fungsi helper yang mungkin tidak ada dalam kode asli
+function toggleSpinner(containerId, spinnerId, show) {
+    const spinner = document.getElementById(spinnerId);
+    if (spinner) {
+        spinner.style.display = show ? 'block' : 'none';
+    }
+}
+
+function getLocalStorageData(key) {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : null;
+}
+
+function setLocalStorageData(key, data) {
+    localStorage.setItem(key, JSON.stringify(data));
+}
+
+function createTable(headers, startWithIndex = 0) {
+    const table = document.createElement('table');
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    
+    headers.forEach(header => {
+        const th = document.createElement('th');
+        th.textContent = header;
+        headerRow.appendChild(th);
+    });
+    
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    return table;
+}
+
+function scrollToTop() {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
 }
