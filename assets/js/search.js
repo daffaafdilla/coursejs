@@ -1,148 +1,187 @@
-const coinsList = document.getElementById('coins-list');
-const exchangesList = document.getElementById('exchanges-list');
-const nftsList = document.getElementById('nfts-list');
-
-document.addEventListener('DOMContentLoaded', () => {
-    const params = new URLSearchParams(window.location.search);
-    const query = params.get('query');
-    if (query) {
-        fetchSearchResult(query, [coinsList, exchangesList, nftsList]);
-    } else {
-        const searchHeading = document.getElementById('searchHeading');
-        const searchContainer = document.querySelector('.search-container');
-        searchContainer.innerHTML = `<p style="color: red; text-align: center; margin-bottom: 8px">Nothing To Show...</p>`;
-        searchHeading.innerText = 'Please search something...';
-    }
+// search.js
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the search query from URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const query = urlParams.get('q') || 'bit'; // Default to 'bit' if no query provided
+    
+    // Update the search heading
+    document.getElementById('searchHeading').textContent = `Search results for "${query}"`;
+    
+    // Update the search input field with the current query
+    document.getElementById('searchInput').value = query;
+    
+    // Handle the search form submission
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const searchValue = document.getElementById('searchInput').value.trim();
+        if (searchValue) {
+            window.location.href = `search.html?q=${encodeURIComponent(searchValue)}`;
+        }
+    });
+    
+    // Hide all error messages and spinners initially
+    document.querySelectorAll('.error-message').forEach(el => el.style.display = 'none');
+    
+    // Show spinners while loading
+    document.getElementById('coins-list-spinner').style.display = 'block';
+    document.getElementById('exchanges-list-spinner').style.display = 'block';
+    document.getElementById('nfts-list-spinner').style.display = 'block';
+    
+    // Fetch coin data
+    fetchCoins(query);
+    
+    // Fetch exchange data
+    fetchExchanges(query);
+    
+    // Fetch NFT data
+    fetchNFTs(query);
 });
 
-function fetchSearchResult(param, idsToToggle) {
-
-    const searchHeading = document.getElementById('searchHeading');
-
-    idsToToggle.forEach(id => {
-        const errorElement = document.getElementById(`${id}-error`);
-
-        if (errorElement) {
-            errorElement.style.display = 'none';
+// Function to fetch coins data
+async function fetchCoins(query) {
+    const coinsContainer = document.getElementById('coins-list');
+    const spinner = document.getElementById('coins-list-spinner');
+    const errorMessage = document.getElementById('coins-list-error');
+    
+    try {
+        // API endpoint for coin search
+        const response = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`);
+        
+        if (!response.ok) {
+            throw new Error('API request failed');
         }
-        toggleSpinner(id, `${id}-spinner`, true);
-    });
-
-    coinsList.innerHTML = '';
-    exchangesList.innerHTML = '';
-    nftsList.innerHTML = '';
-
-    searchHeading.innerText = `Search results for "${param}"`;
-
-    const url = `https://api.coingecko.com/api/v3/search?query=${param}`;
-    const options = { method: 'GET', headers: { accept: 'application/json' } };
-
-    fetch(url, options)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok ' + response.statusText);
-            }
-            idsToToggle.forEach(id => toggleSpinner(id, `${id}-spinner`, false));
-            return response.json();
-        })
-        .then(data => {
-            let coins = (data.coins || []).filter(coin => coin.thumb !== "missing_thumb.png");
-            let exchanges = (data.exchanges || []).filter(ex => ex.thumb !== "missing_thumb.png");
-            let nfts = (data.nfts || []).filter(nf => nf.thumb !== "missing_thumb.png");
-
-            const coinsCount = coins.length;
-            const exchangesCount = exchanges.length;
-            const nftsCount = nfts.length;
-
-            let minCount = Math.min(coinsCount, exchangesCount, nftsCount);
-
-            if (coinsCount > 0 && exchangesCount > 0 & nftsCount > 0) {
-                coins = coins.slice(0, minCount);
-                exchanges = exchanges.slice(0, minCount);
-                nfts = nfts.slice(0, minCount);
-            }
-
-            coinsResult(coins);
-            exchangesResult(exchanges);
-            nftsResult(nfts);
-
-            if (coins.length === 0) {
-                coinsList.innerHTML = '<p style="color: red; text-align: center;">No results found for coins.</p>';
-            }
-
-            if (exchanges.length === 0) {
-                exchangesList.innerHTML = '<p style="color: red; text-align: center;">No results found for exchanges.</p>';
-            }
-
-            if (nfts.length === 0) {
-                nftsList.innerHTML = '<p style="color: red; text-align: center;">No results found for nfts.</p>';
-            }
-
-        })
-        .catch(error => {
-            idsToToggle.forEach(id => {
-                toggleSpinner(id, `${id}-spinner`, false);
-                document.getElementById(`${id}-error`).style.display = 'block';
+        
+        const data = await response.json();
+        
+        // Hide spinner
+        spinner.style.display = 'none';
+        
+        // Clear previous results
+        coinsContainer.innerHTML = '';
+        
+        if (data.coins && data.coins.length > 0) {
+            // Display coin results
+            data.coins.slice(0, 10).forEach(coin => {
+                const coinItem = document.createElement('div');
+                coinItem.className = 'search-item';
+                coinItem.innerHTML = `
+                    <img src="${coin.thumb}" alt="${coin.name}">
+                    <div class="info">
+                        <h5>${coin.name} (${coin.symbol})</h5>
+                        <p>Rank: #${coin.market_cap_rank || 'N/A'}</p>
+                    </div>
+                    <a href="detail.html?id=${coin.id}" class="view-btn">View</a>
+                `;
+                coinsContainer.appendChild(coinItem);
             });
-            console.error('Error fetching data:', error);
-        });
+        } else {
+            coinsContainer.innerHTML = '<p class="no-results">No coin results found</p>';
+        }
+    } catch (error) {
+        console.error('Error fetching coin data:', error);
+        spinner.style.display = 'none';
+        errorMessage.style.display = 'block';
+    }
 }
 
-function coinsResult(coins) {
-    coinsList.innerHTML = '';
-
-    const table = createTable([
-        'Rank', 'Coin'
-    ]);
-
-    coins.forEach(coin => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-           <td>${coin.market_cap_rank}</td>
-            <td class="name-column"><img src="${coin.thumb}" alt="${coin.name}"> ${coin.name} <span>(${coin.symbol.toUpperCase()})</span></td>
-        `;
-        table.appendChild(row);
-        row.onclick = () => {
-            window.location.href = `../../pages/coin.html?coin=${coin.id}`;
-        };
-    });
-    coinsList.appendChild(table);
+// Function to fetch exchanges data
+async function fetchExchanges(query) {
+    const exchangesContainer = document.getElementById('exchanges-list');
+    const spinner = document.getElementById('exchanges-list-spinner');
+    const errorMessage = document.getElementById('exchanges-list-error');
+    
+    try {
+        // API endpoint for exchange search
+        const response = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`);
+        
+        if (!response.ok) {
+            throw new Error('API request failed');
+        }
+        
+        const data = await response.json();
+        
+        // Hide spinner
+        spinner.style.display = 'none';
+        
+        // Clear previous results
+        exchangesContainer.innerHTML = '';
+        
+        if (data.exchanges && data.exchanges.length > 0) {
+            // Display exchange results
+            data.exchanges.slice(0, 10).forEach(exchange => {
+                const exchangeItem = document.createElement('div');
+                exchangeItem.className = 'search-item';
+                exchangeItem.innerHTML = `
+                    <img src="${exchange.thumb}" alt="${exchange.name}">
+                    <div class="info">
+                        <h5>${exchange.name}</h5>
+                        <p>Rank: #${exchange.market_cap_rank || 'N/A'}</p>
+                    </div>
+                    <a href="exchange.html?id=${exchange.id}" class="view-btn">View</a>
+                `;
+                exchangesContainer.appendChild(exchangeItem);
+            });
+        } else {
+            exchangesContainer.innerHTML = '<p class="no-results">No exchange results found</p>';
+        }
+    } catch (error) {
+        console.error('Error fetching exchange data:', error);
+        spinner.style.display = 'none';
+        errorMessage.style.display = 'block';
+    }
 }
 
-function exchangesResult(exchanges) {
-    exchangesList.innerHTML = '';
-
-    const table = createTable([
-        'Exchange', 'Market'
-    ]);
-
-    exchanges.forEach(ex => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-           <td class="name-column"><img src="${ex.thumb}" alt="${ex.name}"> ${ex.name}</td>
-            <td>${ex.market_type}</td>
-        `;
-        table.appendChild(row);
-
-    });
-    exchangesList.appendChild(table);
+// Function to fetch NFTs data
+async function fetchNFTs(query) {
+    const nftsContainer = document.getElementById('nfts-list');
+    const spinner = document.getElementById('nfts-list-spinner');
+    const errorMessage = document.getElementById('nfts-list-error');
+    
+    try {
+        // API endpoint for NFT search
+        const response = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`);
+        
+        if (!response.ok) {
+            throw new Error('API request failed');
+        }
+        
+        const data = await response.json();
+        
+        // Hide spinner
+        spinner.style.display = 'none';
+        
+        // Clear previous results
+        nftsContainer.innerHTML = '';
+        
+        if (data.nfts && data.nfts.length > 0) {
+            // Display NFT results
+            data.nfts.slice(0, 10).forEach(nft => {
+                const nftItem = document.createElement('div');
+                nftItem.className = 'search-item';
+                nftItem.innerHTML = `
+                    <img src="${nft.thumb}" alt="${nft.name}">
+                    <div class="info">
+                        <h5>${nft.name}</h5>
+                        <p>Symbol: ${nft.symbol || 'N/A'}</p>
+                    </div>
+                    <a href="nft.html?id=${nft.id}" class="view-btn">View</a>
+                `;
+                nftsContainer.appendChild(nftItem);
+            });
+        } else {
+            nftsContainer.innerHTML = '<p class="no-results">No NFT results found</p>';
+        }
+    } catch (error) {
+        console.error('Error fetching NFT data:', error);
+        spinner.style.display = 'none';
+        errorMessage.style.display = 'block';
+    }
 }
 
-function nftsResult(nfts) {
-    nftsList.innerHTML = '';
-
-    const table = createTable([
-        'NFT', 'Symbol'
-    ]);
-
-    nfts.forEach(nf => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-           <td class="name-column"><img src="${nf.thumb}" alt="${nf.name}"> ${nf.name}</td>
-            <td class="name-column">${nf.symbol}</td>
-        `;
-        table.appendChild(row);
-
+// Function to scroll to top
+function scrollToTop() {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
     });
-    nftsList.appendChild(table);
 }
